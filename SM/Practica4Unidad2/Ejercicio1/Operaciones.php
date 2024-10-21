@@ -5,5 +5,6 @@ class Operaciones {
     public $resta;
     public $multiplicacion;
     public $division;
+
 }
 ?>

@@ -16,6 +16,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $matriz[$i][$j] = rand(1, 10); // Valores aleatorios entre 1 y 10
         }
     }
+    
 
     // Calcular sumas de las diagonales
     $sumaDiagonalPrincipal = 0;

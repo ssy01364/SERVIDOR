@@ -8,7 +8,6 @@ if (!isset($_SESSION['id_usu'])) {
 include '../conexion.php';
 
 $id_usu = intval($_SESSION['id_usu']);
-
 $fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d');
 
 $sql = "SELECT 
@@ -32,7 +31,6 @@ $sql = "SELECT
         LEFT JOIN HIPERGLUCEMIA g ON cm.tipo_comida = g.tipo_comida AND cm.fecha = g.fecha AND cm.id_usu = g.id_usu
         WHERE c.fecha = '$fecha' AND c.id_usu = $id_usu";
 
-
 $resultado = $conn->query($sql);
 
 if (!$resultado) {
@@ -42,86 +40,138 @@ if (!$resultado) {
 <!DOCTYPE html>
 <html lang="es">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Datos del Día</title>
-    <link rel="stylesheet" href="../css/login.css"> 
-    <style>
-        /* Ajustes de estilo */
-        body {
-            font-family: 'Poppins', sans-serif;
-            background: linear-gradient(135deg, #1e3c72, #2a5298);
-            color: white;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        .container-result {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(10px);
-            padding: 40px;
-            border-radius: 15px;
-            width: 95%;  
-            max-width: 1500px; 
-            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
-            text-align: center;
-            overflow: hidden;
-            max-height: 1200px;
-            overflow-y: auto;
-        }
-        .container-result h2 {
-            font-size: 2.5rem;
-            margin-bottom: 30px;
-        }
-        .table-container {
-            display: flex;
-            justify-content: space-between;
-            gap: 20px;
-            margin-top: 30px;
-        }
-        .table-container table {
-            width: 48%; 
-            border-collapse: collapse;
-        }
-        table th, table td {
-            padding: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.3);
-            text-align: center;
-            font-size: 1.1rem;
-        }
-        table th {
-            background: rgba(255, 255, 255, 0.2);
-            color: #fff;
-        }
-        table td {
-            color: #ddd;
-        }
-        .calendar-btn {
-            margin-top: 20px;
-            background: #3498db;
-            color: white;
-            font-weight: bold;
-            padding: 10px 20px;
-            border-radius: 5px;
-            cursor: pointer;
-            transition: background 0.3s, transform 0.2s;
-            font-size: 1rem;
-            text-decoration: none;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-        }
-        .calendar-btn:hover {
-            background: #2980b9;
-            transform: scale(1.05);
-        }
-        .calendar-btn:active {
-            transform: scale(0.95);
-        }
-    </style>
+  <meta charset="UTF-8">
+  <title>Datos del Día</title>
+  <link rel="stylesheet" href="../css/login.css"> 
+  <style>
+    /* Fondo animado con un degradado */
+    body {
+      margin: 0;
+      padding: 0;
+      background: linear-gradient(-45deg, #74ebd5, #ACB6E5, #FBC2EB, #FEE140);
+      background-size: 400% 400%;
+      animation: gradientBG 15s ease infinite;
+      font-family: 'Poppins', sans-serif;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      color: #fff;
+      text-align: center;
+      padding: 20px;
+    }
+    @keyframes gradientBG {
+      0% { background-position: 0% 50%; }
+      50% { background-position: 100% 50%; }
+      100% { background-position: 0% 50%; }
+    }
+
+    /* Contenedor principal con efecto glassmorphism */
+    .container-result {
+      background: rgba(255, 255, 255, 0.1);
+      backdrop-filter: blur(10px);
+      padding: 40px;
+      border-radius: 15px;
+      width: 95%;  
+      max-width: 1500px; 
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+      text-align: center;
+      overflow: hidden;
+      max-height: 1200px;
+      overflow-y: auto;
+      animation: fadeIn 0.7s ease forwards;
+      transform: scale(0.9);
+      opacity: 0;
+    }
+    @keyframes fadeIn {
+      to {
+        transform: scale(1);
+        opacity: 1;
+      }
+    }
+    .container-result h2 {
+      font-size: 2.5rem;
+      margin-bottom: 30px;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+
+    .table-container {
+      display: flex;
+      justify-content: space-between;
+      gap: 20px;
+      margin-top: 30px;
+    }
+    .table-container table {
+      width: 48%; 
+      border-collapse: collapse;
+      background: rgba(255,255,255,0.1);
+      border-radius: 10px;
+      overflow: hidden;
+    }
+    table th, table td {
+      padding: 18px;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      text-align: center;
+      font-size: 1.1rem;
+      color: gray;
+      word-wrap: break-word;
+    }
+    table th {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+      font-weight: 600;
+    }
+
+    /* Botón de Calendario */
+    .calendar-btn {
+      margin-top: 20px;
+      background: #3498db;
+      color: white;
+      font-weight: bold;
+      padding: 10px 20px;
+      border-radius: 5px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.2s;
+      font-size: 1rem;
+      text-decoration: none;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .calendar-btn:hover {
+      background: #2980b9;
+      transform: scale(1.05);
+    }
+    .calendar-btn:active {
+      transform: scale(0.95);
+    }
+
+    /* Sección de "No se encontraron registros" más vistosa */
+    .no-records-container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(10px);
+      padding: 2rem;
+      border-radius: 10px;
+      box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
+      animation: fadeIn 0.7s ease forwards;
+      transform: scale(0.9);
+      opacity: 0;
+      width: 90%;
+      max-width: 600px;
+      text-align: center;
+      margin: 0 auto;
+    }
+    .no-records-icon {
+      font-size: 3rem;
+      margin-bottom: 0.5rem;
+    }
+    .no-records-message {
+      font-size: 1.4rem;
+      margin-bottom: 1rem;
+      text-shadow: 1px 1px 3px rgba(0,0,0,0.3);
+    }
+  </style>
 </head>
 <body>
 <?php
@@ -187,8 +237,12 @@ if ($resultado->num_rows > 0) {
     echo "</div>"; // .container-result
     echo '<a class="calendar-btn" href="calendario.php">📅 Calendario</a>';
 } else {
-    echo "<p>No se encontraron registros.</p>";
+    // Sección vistosa cuando no hay registros
+    echo '<div class="no-records-container">';
+    echo '<div class="no-records-icon">😕</div>';
+    echo '<h2 class="no-records-message">No se encontraron registros.</h2>';
     echo '<a class="calendar-btn" href="calendario.php">📅 Calendario</a>';
+    echo '</div>';
 }
 
 $conn->close();

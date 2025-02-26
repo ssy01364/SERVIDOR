@@ -2,36 +2,37 @@
 session_start();
 
 if (!isset($_SESSION['id_usu'])) {
-    die("Usuario no autenticado.");
+    die("No estás logueado.");
 }
-$id_usu = intval($_SESSION['id_usu']);
 
-include '../conexion.php';
+$id_usu = $_SESSION['id_usu'];  
 
-$mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');
-$anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
+include '../conexion.php';  
 
-$primerDia = date('Y-m-01', strtotime("$anio-$mes-01"));
-$ultimoDia = date('Y-m-t', strtotime("$anio-$mes-01"));
+$fecha = isset($_GET['fecha']) ? $_GET['fecha'] : date('Y-m-d'); 
 
-$sql = "SELECT fecha, 'Glucosa' AS tipo FROM CONTROL_GLUCOSA WHERE id_usu = $id_usu
-        UNION 
-        SELECT fecha, 'Comida' FROM COMIDA WHERE id_usu = $id_usu
-        UNION 
-        SELECT fecha, 'Hiperglucemia' FROM HIPERGLUCEMIA WHERE id_usu = $id_usu
-        UNION 
-        SELECT fecha, 'Hipoglucemia' FROM HIPOGLUCEMIA WHERE id_usu = $id_usu";
+$sql = "SELECT 
+            c.fecha, 
+            c.deporte, 
+            c.lenta, 
+            cm.tipo_comida, 
+            cm.gl_1h, 
+            cm.gl_2h, 
+            cm.raciones, 
+            cm.insulina AS insulina_comida,
+            h.glucosa AS glucosa_hipo, 
+            h.hora AS hora_hipo, 
+            h.tipo_comida AS tipo_comida_hipo, 
+            g.glucosa AS glucosa_hiper, 
+            g.hora AS hora_hiper, 
+            g.correccion AS correccion_hiper 
+        FROM CONTROL_GLUCOSA c
+        LEFT JOIN COMIDA cm ON c.fecha = cm.fecha AND c.id_usu = cm.id_usu
+        LEFT JOIN HIPOGLUCEMIA h ON cm.tipo_comida = h.tipo_comida AND cm.fecha = h.fecha AND cm.id_usu = h.id_usu
+        LEFT JOIN HIPERGLUCEMIA g ON cm.tipo_comida = g.tipo_comida AND cm.fecha = g.fecha AND cm.id_usu = g.id_usu
+        WHERE c.fecha = '$fecha' AND c.id_usu = $id_usu";
+
 $resultado = $conn->query($sql);
-
-$eventos = [];
-if ($resultado) {
-    while ($row = $resultado->fetch_assoc()) {
-        $eventos[$row['fecha']][] = $row['tipo'];
-    }
-}
-
-$diaSemana = date('N', strtotime($primerDia));
-$diasMes = date('t', strtotime($primerDia));
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -39,93 +40,86 @@ $diasMes = date('t', strtotime($primerDia));
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendario Diabetes</title>
+    <!-- Se vincula el mismo archivo CSS que en login.css para mantener la paleta y estilos -->
     <link rel="stylesheet" href="../css/login.css">
     <style>
-        /* Estilos específicos para el calendario */
-        .container-calendar {
+        /* Estilos específicos para esta página */
+        body {
+            font-family: 'Poppins', sans-serif;
+            background: linear-gradient(135deg, #1e3c72, #2a5298);
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container-result {
             background: rgba(255, 255, 255, 0.1);
             backdrop-filter: blur(10px);
-            padding: 2rem;
-            border-radius: 10px;
-            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-            width: 95%;
-            max-width: 800px;
+            padding: 40px;
+            border-radius: 15px;
+            width: 95%;  
+            max-width: 1500px; 
+            box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
             text-align: center;
-            color: white;
-            margin: 20px auto;
-            overflow: auto;
+            overflow: hidden;
+            height: auto;
             max-height: 1200px;
+            overflow-y: auto;
+            margin: 0 auto;
         }
-        .container-calendar h1 {
-            margin-bottom: 20px;
-            font-size: 24px;
+        .container-result h2 {
+            font-size: 2.5rem;
+            margin-bottom: 30px;
         }
-        /* Navegación del calendario */
-        .nav-calendar {
+        .table-container {
             display: flex;
             justify-content: space-between;
-            margin-bottom: 15px;
+            gap: 20px;
+            margin-top: 30px;
         }
-        .nav-calendar a {
-            text-decoration: none;
-            color: white;
-            background: #e67e22;
-            padding: 10px 15px;
-            border-radius: 5px;
-            font-size: 1.2rem;
-            transition: 0.3s;
-        }
-        .nav-calendar a:hover {
-            background: #d35400;
-        }
-        .nav-calendar a:active {
-            transform: scale(0.98);
-        }
-        /* Tabla del calendario */
-        table {
-            width: 100%;
+        .table-container table {
+            width: 48%; 
             border-collapse: collapse;
         }
-        th, td {
-            padding: 15px;
-            text-align: center;
+        table th, table td {
+            padding: 18px;
             border: 1px solid rgba(255, 255, 255, 0.3);
+            text-align: center;
+            font-size: 1.1rem;
             word-wrap: break-word;
+            overflow: hidden;
         }
-        th {
+        table th {
             background: rgba(255, 255, 255, 0.2);
             color: #fff;
         }
-        td {
-            cursor: pointer;
+        table td {
+            color: #ddd;
         }
-        td:hover {
-            background-color: #3f7cac;
-            transition: 0.3s ease;
+        .nav {
+            margin-bottom: 30px;
         }
-        td a {
-            color: #f39c12;
-            font-size: 1.5rem;
+        .nav a {
             text-decoration: none;
-            display: block;
-            padding: 10px;
-            transition: transform 0.1s ease, color 0.3s ease;
+            color: white;
+            background: #e67e22;
+            padding: 15px 20px;
+            border-radius: 7px;
+            font-size: 1.2rem;
+            transition: 0.3s;
         }
-        td a:hover {
-            background-color: #f39c12;
-            color: #fff;
+        .nav a:hover {
+            background: #d35400;
         }
-        td a:active {
-            transform: scale(0.95);
-            color: #fff;
+        .nav a:active {
+            transform: scale(0.98);
         }
-        /* Botón para menú principal */
-        .button-container {
+        .calendar-btn {
             margin-top: 20px;
-            text-align: center;
-        }
-        .btn-calendar {
-            background-color: #3498db;
+            background: #3498db;
             color: white;
             font-weight: bold;
             padding: 10px 20px;
@@ -133,55 +127,91 @@ $diasMes = date('t', strtotime($primerDia));
             cursor: pointer;
             transition: background 0.3s, transform 0.2s;
             font-size: 1rem;
-            text-decoration: none;
             display: inline-flex;
             align-items: center;
             gap: 8px;
+            text-decoration: none; 
         }
-        .btn-calendar:hover {
-            background-color: #2980b9;
+        .calendar-btn:hover {
+            background: #2980b9;
             transform: scale(1.05);
         }
-        .btn-calendar:active {
+        .calendar-btn:active {
             transform: scale(0.95);
         }
     </style>
 </head>
 <body>
-    <div class="container-calendar">
-        <div class="nav-calendar">
-            <a href="?mes=<?= ($mes == 1) ? 12 : $mes - 1 ?>&anio=<?= ($mes == 1) ? $anio - 1 : $anio ?>">◀ Mes Anterior</a>
-            <h1><?= date("F Y", strtotime($primerDia)) ?></h1>
-            <a href="?mes=<?= ($mes == 12) ? 1 : $mes + 1 ?>&anio=<?= ($mes == 12) ? $anio + 1 : $anio ?>">Mes Siguiente ▶</a>
-        </div>
-        <table>
-            <tr>
-                <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
-            </tr>
-            <tr>
-            <?php
-                for ($i = 1; $i < $diaSemana; $i++) {
-                    echo "<td></td>";
-                }
-                for ($dia = 1; $dia <= $diasMes; $dia++) {
-                    $fecha_actual = "$anio-$mes-" . str_pad($dia, 2, "0", STR_PAD_LEFT);
-                    echo "<td>";
-                    echo "<a href='datos.php?fecha=$fecha_actual'><strong>$dia</strong></a>";
-                    echo "</td>";
-                    if ((($dia + $diaSemana - 1) % 7) == 0) {
-                        echo "</tr><tr>";
+    <?php if ($resultado && $resultado->num_rows > 0): ?>
+        <div class="container-result">
+            <h2>Datos del <?php echo $fecha; ?></h2>
+            <div class="table-container">
+                <table>
+                    <tr>
+                        <th>Fecha</th>
+                        <th>Deporte</th>
+                        <th>Insulina Lenta</th>
+                    </tr>
+                    <?php
+                    // Mostrar los datos de CONTROL_GLUCOSA
+                    while ($fila = $resultado->fetch_assoc()) {
+                        echo "<tr>
+                                <td>{$fila['fecha']}</td>
+                                <td>{$fila['deporte']} min</td>
+                                <td>{$fila['lenta']} U</td>
+                              </tr>";
                     }
-                }
-                while ((($dia + $diaSemana - 1) % 7) != 1) {
-                    echo "<td></td>";
-                    $dia++;
-                }
-            ?>
-            </tr>
-        </table>
-        <div class="button-container">
-            <a href="seleccionar.php" class="btn-calendar">📋 Menú Principal</a>
+                    ?>
+                </table>
+                <?php 
+                // Reiniciar el puntero para la segunda tabla
+                $resultado->data_seek(0);
+                ?>
+                <table>
+                    <tr>
+                        <th>Tipo de Comida</th>
+                        <th>Glucosa 1h</th>
+                        <th>Glucosa 2h</th>
+                        <th>Raciones</th>
+                        <th>Insulina Comida</th>
+                        <th>Glucosa Hipo</th>
+                        <th>Hora Hipo</th>
+                        <th>Glucosa Hiper</th>
+                        <th>Hora Hiper</th>
+                        <th>Corrección Hiper</th>
+                    </tr>
+                    <?php
+                    // Mostrar los datos de COMIDA, HIPERGLUCEMIA e HIPOGLUCEMIA
+                    while ($fila = $resultado->fetch_assoc()) {
+                        $colorTipoComida = match (strtolower($fila['tipo_comida'])) {
+                            'desayuno' => 'gold',        
+                            'comida'   => 'orange',        
+                            'cena'     => 'lightcoral',      
+                            default    => 'white',          
+                        };
+                        echo "<tr>
+                                <td style='color: {$colorTipoComida}; font-weight: bold;'>{$fila['tipo_comida']}</td>
+                                <td>{$fila['gl_1h']} mg/dL</td>
+                                <td>{$fila['gl_2h']} mg/dL</td>
+                                <td>{$fila['raciones']}</td>
+                                <td>{$fila['insulina_comida']} U</td>
+                                <td>{$fila['glucosa_hipo']} mg/dL</td>
+                                <td>{$fila['hora_hipo']}</td>
+                                <td>{$fila['glucosa_hiper']} mg/dL</td>
+                                <td>{$fila['hora_hiper']}</td>
+                                <td>{$fila['correccion_hiper']} U</td>
+                              </tr>";
+                    }
+                    ?>
+                </table>
+            </div>
+            <a class="calendar-btn" href="calendario.php">📅 Calendario</a>
         </div>
-    </div>
+    <?php else: ?>
+        <div class="container-result">
+            <p>No se encontraron registros.</p>
+            <a class="calendar-btn" href="calendario.php">📅 Calendario</a>
+        </div>
+    <?php endif; ?>
 </body>
 </html>

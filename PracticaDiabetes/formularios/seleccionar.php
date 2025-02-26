@@ -11,7 +11,6 @@ $usuario = htmlspecialchars($_SESSION['usuario']);
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Formulario de Opciones</title>
-    <!-- Se utiliza el mismo archivo CSS para mantener la paleta y estilos -->
     <link rel="stylesheet" href="../css/login.css">
     <style>
         /* Estilos adicionales para este formulario, en caso de necesitar ajustes específicos */
@@ -42,7 +41,6 @@ $usuario = htmlspecialchars($_SESSION['usuario']);
             max-width: 600px;
             width: 90%;
         }
-        /* Si deseas modificar algún botón en particular, puedes agregar reglas aquí */
     </style>
 </head>
 <body>

@@ -1,22 +1,12 @@
 <?php 
-session_start(); 
+session_start();
 
 if (!isset($_SESSION['id_usu'])) {
     die("Usuario no autenticado.");
 }
 $id_usu = intval($_SESSION['id_usu']);
 
-$host = "localhost:3307";
-$dbname = "diabetesdb";
-$user = "root"; 
-$password = ""; 
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $user, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Error de conexión: " . $e->getMessage());
-}
+include '../conexion.php';  
 
 $mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');
 $anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
@@ -24,6 +14,7 @@ $anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
 $primerDia = date('Y-m-01', strtotime("$anio-$mes-01"));
 $ultimoDia = date('Y-m-t', strtotime("$anio-$mes-01"));
 
+// Consulta unificada de fechas y tipos
 $sql = "SELECT fecha, 'Glucosa' AS tipo FROM CONTROL_GLUCOSA WHERE id_usu = $id_usu
         UNION 
         SELECT fecha, 'Comida' FROM COMIDA WHERE id_usu = $id_usu
@@ -31,16 +22,22 @@ $sql = "SELECT fecha, 'Glucosa' AS tipo FROM CONTROL_GLUCOSA WHERE id_usu = $id_
         SELECT fecha, 'Hiperglucemia' FROM HIPERGLUCEMIA WHERE id_usu = $id_usu
         UNION 
         SELECT fecha, 'Hipoglucemia' FROM HIPOGLUCEMIA WHERE id_usu = $id_usu";
-$stmt = $pdo->query($sql);
+
+$resultado = $conn->query($sql);
 $eventos = [];
-while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $eventos[$row['fecha']][] = $row['tipo'];
+
+if ($resultado && $resultado->num_rows > 0) {
+    while ($row = $resultado->fetch_assoc()) {
+        $eventos[$row['fecha']][] = $row['tipo'];
+    }
 }
 
+// Calcular el día de la semana del primer día y la cantidad de días del mes
 $diaSemana = date('N', strtotime($primerDia));
 $diasMes = date('t', strtotime($primerDia));
-?>
 
+$conn->close();
+?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
@@ -51,7 +48,7 @@ $diasMes = date('t', strtotime($primerDia));
   <link rel="stylesheet" href="../css/login.css">
   <!-- Estilos adicionales para el calendario -->
   <style>
-    .calendario {
+    .container-calendar {
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       padding: 2rem;
@@ -61,29 +58,30 @@ $diasMes = date('t', strtotime($primerDia));
       max-width: 800px;
       text-align: center;
       color: white;
-      margin: 20px;
+      margin: 20px auto;
     }
-    .calendario h1 {
+    .container-calendar h1 {
       margin-bottom: 20px;
       font-size: 24px;
     }
-    .nav {
+    .nav-calendar {
       display: flex;
       justify-content: space-between;
       margin-bottom: 15px;
     }
-    .nav a {
+    .nav-calendar a {
       text-decoration: none;
       color: white;
       background: #e67e22;
       padding: 10px 15px;
       border-radius: 5px;
+      font-size: 1.2rem;
       transition: 0.3s;
     }
-    .nav a:hover {
+    .nav-calendar a:hover {
       background: #d35400;
     }
-    .nav a:active {
+    .nav-calendar a:active {
       transform: scale(0.98);
     }
     table {
@@ -107,7 +105,7 @@ $diasMes = date('t', strtotime($primerDia));
       transition: 0.3s ease;
     }
     td a {
-      color: #f39c12; /* Naranja */
+      color: #f39c12; 
       font-size: 1.5rem;
       text-decoration: none;
       display: block;
@@ -148,8 +146,8 @@ $diasMes = date('t', strtotime($primerDia));
   </style>
 </head>
 <body>
-  <div class="calendario">
-    <div class="nav">
+  <div class="container-calendar">
+    <div class="nav-calendar">
       <a href="?mes=<?= ($mes == 1) ? 12 : $mes - 1 ?>&anio=<?= ($mes == 1) ? $anio - 1 : $anio ?>">◀ Mes Anterior</a>
       <h1><?= date("F Y", strtotime($primerDia)) ?></h1>
       <a href="?mes=<?= ($mes == 12) ? 1 : $mes + 1 ?>&anio=<?= ($mes == 12) ? $anio + 1 : $anio ?>">Mes Siguiente ▶</a>
@@ -160,18 +158,22 @@ $diasMes = date('t', strtotime($primerDia));
       </tr>
       <tr>
       <?php
+        // Rellenar los días en blanco antes del primer día
         for ($i = 1; $i < $diaSemana; $i++) {
             echo "<td></td>";
         }
+        // Mostrar los días del mes
         for ($dia = 1; $dia <= $diasMes; $dia++) {
             $fecha_actual = "$anio-$mes-" . str_pad($dia, 2, "0", STR_PAD_LEFT);
             echo "<td>";
             echo "<a href='datos.php?fecha=$fecha_actual'><strong>$dia</strong></a>";
             echo "</td>";
+            // Si es el final de la semana, nueva fila
             if ((($dia + $diaSemana - 1) % 7) == 0) {
                 echo "</tr><tr>";
             }
         }
+        // Rellenar los días en blanco hasta completar la última fila
         while ((($dia + $diaSemana - 1) % 7) != 1) {
             echo "<td></td>";
             $dia++;

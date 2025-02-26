@@ -1,4 +1,4 @@
-<?php 
+<?php  
 session_start();
 
 if (!isset($_SESSION['id_usu'])) {
@@ -7,62 +7,45 @@ if (!isset($_SESSION['id_usu'])) {
 
 $id_usu = intval($_SESSION['id_usu']);
 
-$pdo = new PDO('mysql:host=localhost;dbname=diabetesdb', 'root', '');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+include '../conexion.php';  
 
-$promedio_glucosa_lenta = null;
+$mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');
+$anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
 
-$sql = "SELECT DAY(fecha) AS dia, lenta 
-        FROM CONTROL_GLUCOSA 
-        WHERE MONTH(fecha) = :mes AND YEAR(fecha) = :anio AND id_usu = :id_usu";
-$stmt = $pdo->prepare($sql);
+$primerDia = date('Y-m-01', strtotime("$anio-$mes-01"));
+$ultimoDia = date('Y-m-t', strtotime("$anio-$mes-01"));
 
-$mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');  
-$anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y'); 
-$stmt->bindParam(':mes', $mes);
-$stmt->bindParam(':anio', $anio);
-$stmt->bindParam(':id_usu', $id_usu);
-$stmt->execute();
+$sql = "SELECT fecha, 'Glucosa' AS tipo FROM CONTROL_GLUCOSA WHERE id_usu = $id_usu
+        UNION 
+        SELECT fecha, 'Comida' FROM COMIDA WHERE id_usu = $id_usu
+        UNION 
+        SELECT fecha, 'Hiperglucemia' FROM HIPERGLUCEMIA WHERE id_usu = $id_usu
+        UNION 
+        SELECT fecha, 'Hipoglucemia' FROM HIPOGLUCEMIA WHERE id_usu = $id_usu";
+$resultado = $conn->query($sql);
 
-$resultado = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-if (!$resultado) {
-    $mensaje = "No hay datos disponibles para el mes y año seleccionados.";
-} else {
-    // Creamos un array con los días del mes (1 a 31)
-    $dias = range(1, 31);  
-    // Array para almacenar los niveles (inicialmente null)
-    $niveles_glucosa = array_fill(0, 31, null);  
-
-    foreach ($resultado as $row) {
-        $dia_index = $row['dia'] - 1;  
-        $niveles_glucosa[$dia_index] = $row['lenta'];  
+$eventos = [];
+if ($resultado) {
+    while ($row = $resultado->fetch_assoc()) {
+        $eventos[$row['fecha']][] = $row['tipo'];
     }
-
-    $total_lenta = 0;
-    $dias_con_datos = 0;
-    foreach ($resultado as $row) {
-        if ($row['lenta'] !== null) {
-            $total_lenta += $row['lenta'];
-            $dias_con_datos++;
-        }
-    }
-    $promedio_glucosa_lenta = $dias_con_datos > 0 ? $total_lenta / $dias_con_datos : null;
 }
+
+$diaSemana = date('N', strtotime($primerDia));
+$diasMes = date('t', strtotime($primerDia));
+
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Estadísticas de Glucosa</title>
-  <!-- Se utiliza el mismo archivo CSS que en login.css para mantener la paleta y estilos -->
+  <title>Calendario Diabetes</title>
   <link rel="stylesheet" href="../css/login.css">
-  <!-- Se carga Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Estilos específicos para la página de estadísticas */
-    .container-statistics {
+    /* Estilos específicos para el calendario */
+    .container-calendar {
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
       padding: 2rem;
@@ -76,38 +59,17 @@ if (!$resultado) {
       overflow: auto;
       max-height: 1200px;
     }
-    .container-statistics h2 {
+    .container-calendar h1 {
       margin-bottom: 20px;
-      font-size: 2.5rem;
+      font-size: 24px;
     }
-    .input-group {
-      margin: 15px 0;
-      text-align: left;
-    }
-    .input-group label {
-      display: block;
-      font-size: 14px;
-      margin-bottom: 5px;
-    }
-    .input-group input {
-      width: 100%;
-      padding: 10px;
-      border: none;
-      border-radius: 5px;
-      background: rgba(255,255,255,0.2);
-      color: white;
-      outline: none;
-    }
-    .input-group input::placeholder {
-      color: rgba(255,255,255,0.7);
-    }
-    /* Navegación para cambiar mes */
-    .nav-statistics {
+    /* Navegación del calendario */
+    .nav-calendar {
       display: flex;
       justify-content: space-between;
       margin-bottom: 15px;
     }
-    .nav-statistics a {
+    .nav-calendar a {
       text-decoration: none;
       color: white;
       background: #e67e22;
@@ -116,151 +78,112 @@ if (!$resultado) {
       font-size: 1.2rem;
       transition: 0.3s;
     }
-    .nav-statistics a:hover {
+    .nav-calendar a:hover {
       background: #d35400;
     }
-    .nav-statistics a:active {
+    .nav-calendar a:active {
       transform: scale(0.98);
     }
+    /* Tabla del calendario */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+    }
+    th, td {
+      padding: 15px;
+      text-align: center;
+      border: 1px solid rgba(255, 255, 255, 0.3);
+      word-wrap: break-word;
+    }
+    th {
+      background: rgba(255, 255, 255, 0.2);
+      color: #fff;
+    }
+    td {
+      cursor: pointer;
+    }
+    td:hover {
+      background-color: #3f7cac;
+      transition: 0.3s ease;
+    }
+    td a {
+      color: #f39c12; /* Naranja */
+      font-size: 1.5rem;
+      text-decoration: none;
+      display: block;
+      padding: 10px;
+      transition: transform 0.1s ease, color 0.3s ease;
+    }
+    td a:hover {
+      background-color: #f39c12;
+      color: #fff;
+    }
+    td a:active {
+      transform: scale(0.95);
+      color: #fff;
+    }
     /* Botón para menú principal */
-    .btn-statistics {
+    .button-container {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .btn-calendar {
       background-color: #3498db;
       color: white;
-      border: none;
-      padding: 12px 24px;
-      font-size: 16px;
       font-weight: bold;
+      padding: 10px 20px;
       border-radius: 5px;
       cursor: pointer;
-      transition: background-color 0.3s, transform 0.2s;
+      transition: background 0.3s, transform 0.2s;
+      font-size: 1rem;
       text-decoration: none;
-      display: inline-block;
-      margin-top: 20px;
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
     }
-    .btn-statistics:hover {
+    .btn-calendar:hover {
       background-color: #2980b9;
       transform: scale(1.05);
     }
-    .btn-statistics:active {
-      background-color: #1f618d;
-      transform: scale(0.98);
-    }
-    /* Estilos para el canvas de la gráfica */
-    canvas {
-      margin-top: 30px;
-      max-width: 100%;
-    }
-    /* Promedio de glucosa */
-    .promedio-glucosa {
-      margin-top: 20px;
-      font-size: 18px;
-      font-weight: bold;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 10px;
-      border-radius: 5px;
+    .btn-calendar:active {
+      transform: scale(0.95);
     }
   </style>
 </head>
 <body>
-  <div class="container-statistics">
-    <h2>Gráfica de Niveles de Glucosa</h2>
-    <form method="GET" action="estadisticas.php">
-      <div class="input-group">
-        <label for="mes">Mes:</label>
-        <input type="number" name="mes" id="mes" value="<?php echo $mes; ?>" min="1" max="12" required>
-      </div>
-      <div class="input-group">
-        <label for="anio">Año:</label>
-        <input type="number" name="anio" id="anio" value="<?php echo $anio; ?>" min="2000" max="3000" required>
-      </div>
-      <button type="submit" class="login-btn">📊 Ver Estadísticas</button>
-    </form>
-
-    <?php if ($promedio_glucosa_lenta !== null): ?>
-      <div class="promedio-glucosa">
-        Promedio de Glucosa Lenta: <?php echo number_format($promedio_glucosa_lenta, 2); ?> mg/dL
-      </div>
-    <?php endif; ?>
-
-    <?php if ($resultado): ?>
-      <canvas id="glucosaChart"></canvas>
-      <script>
-        const ctx = document.getElementById('glucosaChart').getContext('2d');
-        const glucosaChart = new Chart(ctx, {
-          type: 'bar',
-          data: {
-            labels: <?php echo json_encode($dias); ?>,
-            datasets: [{
-              label: 'Nivel de Glucosa Lenta',
-              data: <?php echo json_encode($niveles_glucosa); ?>,
-              backgroundColor: '#f39c12',
-              borderColor: '#e67e22',
-              borderWidth: 1
-            }]
-          },
-          options: {
-            scales: {
-              y: {
-                beginAtZero: true,
-                title: {
-                  display: true,
-                  text: 'Nivel de Glucosa (mg/dL)',
-                  color: '#fff',
-                  font: {
-                    size: 14,
-                  }
-                },
-                ticks: {
-                  color: '#f39c12'
-                }
-              },
-              x: {
-                title: {
-                  display: true,
-                  text: 'Días del Mes',
-                  color: '#fff',
-                  font: {
-                    size: 14,
-                  }
-                },
-                ticks: {
-                  color: '#f39c12'
-                }
-              }
-            },
-            plugins: {
-              annotation: {
-                annotations: {
-                  line1: {
-                    type: 'line',
-                    yMin: <?php echo $promedio_glucosa_lenta; ?>,
-                    yMax: <?php echo $promedio_glucosa_lenta; ?>,
-                    borderColor: 'red',
-                    borderWidth: 2,
-                    label: {
-                      content: 'Promedio: <?php echo number_format($promedio_glucosa_lenta, 2); ?>',
-                      enabled: true,
-                      position: 'center',
-                      backgroundColor: 'rgba(255, 255, 255, 0.5)',
-                      font: {
-                        size: 12
-                      }
-                    }
-                  }
-                }
-              }
+  <div class="container-calendar">
+    <div class="nav-calendar">
+      <a href="?mes=<?= ($mes == 1) ? 12 : $mes - 1 ?>&anio=<?= ($mes == 1) ? $anio - 1 : $anio ?>">◀ Mes Anterior</a>
+      <h1><?= date("F Y", strtotime($primerDia)) ?></h1>
+      <a href="?mes=<?= ($mes == 12) ? 1 : $mes + 1 ?>&anio=<?= ($mes == 12) ? $anio + 1 : $anio ?>">Mes Siguiente ▶</a>
+    </div>
+    <table>
+      <tr>
+        <th>Lun</th><th>Mar</th><th>Mié</th><th>Jue</th><th>Vie</th><th>Sáb</th><th>Dom</th>
+      </tr>
+      <tr>
+      <?php
+        for ($i = 1; $i < $diaSemana; $i++) {
+            echo "<td></td>";
+        }
+        for ($dia = 1; $dia <= $diasMes; $dia++) {
+            $fecha_actual = "$anio-$mes-" . str_pad($dia, 2, "0", STR_PAD_LEFT);
+            echo "<td>";
+            echo "<a href='datos.php?fecha=$fecha_actual'><strong>$dia</strong></a>";
+            echo "</td>";
+            if ((($dia + $diaSemana - 1) % 7) == 0) {
+                echo "</tr><tr>";
             }
-          }
-        });
-      </script>
-    <?php else: ?>
-      <div class="promedio-glucosa">
-        <?php echo $mensaje; ?>
-      </div>
-    <?php endif; ?>
-
+        }
+        while ((($dia + $diaSemana - 1) % 7) != 1) {
+            echo "<td></td>";
+            $dia++;
+        }
+      ?>
+      </tr>
+    </table>
     <div class="button-container">
-      <a href="seleccionar.php" class="btn-statistics">📋 Menú Principal</a>
+      <a href="seleccionar.php" class="btn-calendar">📋 Menú Principal</a>
     </div>
   </div>
 </body>

@@ -1,23 +1,12 @@
-<?php 
+<?php  
 session_start();
 
 if (!isset($_SESSION['id_usu'])) {
-    die("No estás logueado.");
+    die("Usuario no autenticado.");
 }
+$id_usu = intval($_SESSION['id_usu']);
 
-$id_usu = intval($_SESSION['id_usu']);  
-
-$host = "localhost:3307";
-$dbname = "diabetesdb";
-$user = "root"; 
-$password = ""; 
-
-try {
-    $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8", $user, $password);
-    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-} catch (PDOException $e) {
-    die("Error de conexión: " . $e->getMessage());
-}
+include '../conexion.php';
 
 $mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');
 $anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
@@ -32,23 +21,24 @@ $sql = "SELECT fecha, 'Glucosa' AS tipo FROM CONTROL_GLUCOSA WHERE id_usu = $id_
         SELECT fecha, 'Hiperglucemia' FROM HIPERGLUCEMIA WHERE id_usu = $id_usu
         UNION 
         SELECT fecha, 'Hipoglucemia' FROM HIPOGLUCEMIA WHERE id_usu = $id_usu";
-$stmt = $pdo->query($sql);
+$resultado = $conn->query($sql);
+
 $eventos = [];
-while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-    $eventos[$row['fecha']][] = $row['tipo'];
+if ($resultado) {
+    while ($row = $resultado->fetch_assoc()) {
+        $eventos[$row['fecha']][] = $row['tipo'];
+    }
 }
 
 $diaSemana = date('N', strtotime($primerDia));
 $diasMes = date('t', strtotime($primerDia));
 ?>
-
 <!DOCTYPE html>
 <html lang="es">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Calendario Diabetes</title>
-    <!-- Se utiliza el mismo archivo CSS que en login para mantener la paleta de colores y estilos -->
     <link rel="stylesheet" href="../css/login.css">
     <style>
         /* Estilos específicos para el calendario */
@@ -130,9 +120,12 @@ $diasMes = date('t', strtotime($primerDia));
             color: #fff;
         }
         /* Botón para menú principal */
-        .btn-calendar {
+        .button-container {
             margin-top: 20px;
-            background: #3498db;
+            text-align: center;
+        }
+        .btn-calendar {
+            background-color: #3498db;
             color: white;
             font-weight: bold;
             padding: 10px 20px;
@@ -146,7 +139,7 @@ $diasMes = date('t', strtotime($primerDia));
             gap: 8px;
         }
         .btn-calendar:hover {
-            background: #2980b9;
+            background-color: #2980b9;
             transform: scale(1.05);
         }
         .btn-calendar:active {

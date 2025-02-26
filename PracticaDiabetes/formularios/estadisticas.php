@@ -7,48 +7,48 @@ if (!isset($_SESSION['id_usu'])) {
 
 $id_usu = intval($_SESSION['id_usu']);
 
-$pdo = new PDO('mysql:host=localhost;dbname=diabetesdb', 'root', '');
-$pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+include '../conexion.php';  
+
+$mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');
+$anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y');
 
 $promedio_glucosa_lenta = null;
 
 $sql = "SELECT DAY(fecha) AS dia, lenta 
         FROM CONTROL_GLUCOSA 
-        WHERE MONTH(fecha) = :mes AND YEAR(fecha) = :anio AND id_usu = :id_usu";
-$stmt = $pdo->prepare($sql);
-
-$mes = isset($_GET['mes']) ? $_GET['mes'] : date('m');  
-$anio = isset($_GET['anio']) ? $_GET['anio'] : date('Y'); 
-$stmt->bindParam(':mes', $mes);
-$stmt->bindParam(':anio', $anio);
-$stmt->bindParam(':id_usu', $id_usu);
+        WHERE MONTH(fecha) = ? 
+          AND YEAR(fecha) = ? 
+          AND id_usu = ?";
+$stmt = $conn->prepare($sql);
+$stmt->bind_param("iii", $mes, $anio, $id_usu);
 $stmt->execute();
+$resultado = $stmt->get_result();
 
-$resultado = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-if (!$resultado) {
+if ($resultado->num_rows === 0) {
     $mensaje = "No hay datos disponibles para el mes y año seleccionados.";
 } else {
-    // Se crea un array con los días del mes (1 a 31)
-    $dias = range(1, 31);  
-    // Array para almacenar los niveles (inicialmente null)
-    $niveles_glucosa = array_fill(0, 31, null);  
-
-    foreach ($resultado as $row) {
-        $dia_index = $row['dia'] - 1;  
-        $niveles_glucosa[$dia_index] = $row['lenta'];  
-    }
+    // Creamos un array con los días del mes (1 a 31)
+    $dias = range(1, 31);
+    $niveles_glucosa = array_fill(0, 31, null);
 
     $total_lenta = 0;
     $dias_con_datos = 0;
-    foreach ($resultado as $row) {
+
+    while ($row = $resultado->fetch_assoc()) {
+        $dia_index = $row['dia'] - 1;
+        $niveles_glucosa[$dia_index] = $row['lenta'];
+
         if ($row['lenta'] !== null) {
             $total_lenta += $row['lenta'];
             $dias_con_datos++;
         }
     }
-    $promedio_glucosa_lenta = $dias_con_datos > 0 ? $total_lenta / $dias_con_datos : null;
+
+    $promedio_glucosa_lenta = ($dias_con_datos > 0) ? ($total_lenta / $dias_con_datos) : null;
 }
+
+$stmt->close();
+$conn->close();
 ?>
 <!DOCTYPE html>
 <html lang="es">
@@ -56,12 +56,10 @@ if (!$resultado) {
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Estadísticas de Glucosa</title>
-  <!-- Se utiliza el mismo archivo CSS para mantener la paleta y estilos -->
   <link rel="stylesheet" href="../css/login.css">
-  <!-- Se carga Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    /* Estilos adicionales específicos para la página de estadísticas */
+    /* Estilos específicos para la página de estadísticas */
     .container-statistics {
       background: rgba(255, 255, 255, 0.1);
       backdrop-filter: blur(10px);
@@ -101,7 +99,7 @@ if (!$resultado) {
     .input-group input::placeholder {
       color: rgba(255,255,255,0.7);
     }
-    /* Botón para cambiar mes */
+    /* Navegación para cambiar mes */
     .nav-statistics {
       display: flex;
       justify-content: space-between;
@@ -122,7 +120,7 @@ if (!$resultado) {
     .nav-statistics a:active {
       transform: scale(0.98);
     }
-    /* Botón de menú principal */
+    /* Botón para menú principal */
     .btn-statistics {
       background-color: #3498db;
       color: white;
@@ -145,7 +143,7 @@ if (!$resultado) {
       background-color: #1f618d;
       transform: scale(0.98);
     }
-    /* Estilos para el canvas */
+    /* Estilos para el canvas de la gráfica */
     canvas {
       margin-top: 30px;
       max-width: 100%;
@@ -176,23 +174,27 @@ if (!$resultado) {
       <button type="submit" class="login-btn">📊 Ver Estadísticas</button>
     </form>
 
-    <?php if ($promedio_glucosa_lenta !== null): ?>
+    <?php if (isset($promedio_glucosa_lenta) && $promedio_glucosa_lenta !== null): ?>
       <div class="promedio-glucosa">
         Promedio de Glucosa Lenta: <?php echo number_format($promedio_glucosa_lenta, 2); ?> mg/dL
       </div>
     <?php endif; ?>
 
-    <?php if ($resultado): ?>
+    <?php if (!empty($resultado) && $resultado->num_rows > 0): ?>
       <canvas id="glucosaChart"></canvas>
       <script>
         const ctx = document.getElementById('glucosaChart').getContext('2d');
+        const dias = <?php echo json_encode($dias); ?>;
+        const nivelesGlucosa = <?php echo json_encode($niveles_glucosa); ?>;
+        const promedio = <?php echo ($promedio_glucosa_lenta !== null) ? $promedio_glucosa_lenta : 'null'; ?>;
+
         const glucosaChart = new Chart(ctx, {
           type: 'bar',
           data: {
-            labels: <?php echo json_encode($dias); ?>,
+            labels: dias,
             datasets: [{
               label: 'Nivel de Glucosa Lenta',
-              data: <?php echo json_encode($niveles_glucosa); ?>,
+              data: nivelesGlucosa,
               backgroundColor: '#f39c12',
               borderColor: '#e67e22',
               borderWidth: 1
@@ -233,12 +235,12 @@ if (!$resultado) {
                 annotations: {
                   line1: {
                     type: 'line',
-                    yMin: <?php echo $promedio_glucosa_lenta; ?>,
-                    yMax: <?php echo $promedio_glucosa_lenta; ?>,
+                    yMin: promedio,
+                    yMax: promedio,
                     borderColor: 'red',
                     borderWidth: 2,
                     label: {
-                      content: 'Promedio: <?php echo number_format($promedio_glucosa_lenta, 2); ?>',
+                      content: 'Promedio: ' + promedio.toFixed(2),
                       enabled: true,
                       position: 'center',
                       backgroundColor: 'rgba(255, 255, 255, 0.5)',
@@ -255,7 +257,7 @@ if (!$resultado) {
       </script>
     <?php else: ?>
       <div class="promedio-glucosa">
-        <?php echo $mensaje; ?>
+        <?php echo $mensaje ?? "No hay datos disponibles."; ?>
       </div>
     <?php endif; ?>
 

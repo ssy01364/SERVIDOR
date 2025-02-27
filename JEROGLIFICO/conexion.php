@@ -1,5 +1,5 @@
 <?php
-$servidor = "localhost";
+$servidor = "localhost:3307";
 $usuario = "root"; // Cambia esto si usas otro usuario
 $clave = ""; // Cambia esto si tienes una contraseña
 $base_datos = "jerogrifico"; // Nombre de la base en minúsculas

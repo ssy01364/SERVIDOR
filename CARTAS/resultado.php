@@ -34,7 +34,7 @@ if (isset($combinacion[$indice1]) && isset($combinacion[$indice2]) && $combinaci
 }
 
 // Conexión a la base de datos
-$conexion = mysqli_connect("localhost", "root", "", "cartas") or die("Error de conexión a la base de datos.");
+$conexion = mysqli_connect("localhost:3307", "root", "", "cartas") or die("Error de conexión a la base de datos.");
 
 // Verificamos que el nombre del jugador existe en la sesión
 if (!isset($_SESSION['nombre'])) {
